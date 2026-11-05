@@ -20,13 +20,13 @@ def run_task(task_id: int) -> None:
         task.started_at = datetime.now(timezone.utc)
         db.commit()
 
-        last_progress = -1
+        last_report = (-1, "")
 
         def report(progress: int, stage: str) -> None:
-            nonlocal last_progress
-            if progress == last_progress:
+            nonlocal last_report
+            if (progress, stage) == last_report:
                 return
-            last_progress = progress
+            last_report = (progress, stage)
             task.progress = progress
             task.stage = stage
             db.commit()
