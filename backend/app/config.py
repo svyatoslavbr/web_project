@@ -7,6 +7,10 @@ class Settings(BaseSettings):
     jwt_secret: str
     jwt_algorithm: str = "HS256"
     jwt_expire_minutes: int = 60
+    max_unknowns: int = 1000
+    max_task_seconds: int = 120
+    max_active_tasks_per_user: int = 3
+    max_queue_size: int = 20
 
     model_config = SettingsConfigDict(env_file=".env", extra="ignore")
 
