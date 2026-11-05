@@ -35,9 +35,14 @@ class LinearSystemIn(BaseModel):
         return self
 
 
+class GeneratedIn(BaseModel):
+    n: int = Field(ge=2)
+    seed: int = 0
+
+
 class TaskCreate(BaseModel):
-    kind: Literal["linear_system"]
-    data: LinearSystemIn
+    kind: Literal["linear_system", "linear_generated"]
+    data: LinearSystemIn | GeneratedIn
 
 
 class TaskOut(BaseModel):

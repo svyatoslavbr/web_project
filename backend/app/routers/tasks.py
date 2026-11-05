@@ -7,7 +7,7 @@ from sqlalchemy.orm import Session
 from app.config import settings
 from app.deps import get_current_user, get_db
 from app.models import Task, User
-from app.schemas import TaskCreate, TaskOut
+from app.schemas import GeneratedIn, LinearSystemIn, TaskCreate, TaskOut
 from app.taskq import cancel_key, redis_conn, task_queue
 
 router = APIRouter(prefix="/tasks", tags=["tasks"])
@@ -29,17 +29,26 @@ def get_owned_task(task_id: int, db: Session, user: User) -> Task:
     return task
 
 
+def check_size(data: TaskCreate) -> None:
+    if data.kind == "linear_system":
+        if not isinstance(data.data, LinearSystemIn):
+            raise HTTPException(422, "Expected matrix and vector")
+        if len(data.data.matrix) > settings.max_json_unknowns:
+            raise HTTPException(422, f"Too many unknowns for JSON input, max {settings.max_json_unknowns}")
+    else:
+        if not isinstance(data.data, GeneratedIn):
+            raise HTTPException(422, "Expected n and seed")
+        if data.data.n > settings.max_unknowns:
+            raise HTTPException(422, f"Too many unknowns, max {settings.max_unknowns}")
+
+
 @router.post("", response_model=TaskOut, status_code=status.HTTP_201_CREATED)
 def create_task(
     data: TaskCreate,
     db: Session = Depends(get_db),
     user: User = Depends(get_current_user),
 ):
-    if len(data.data.matrix) > settings.max_unknowns:
-        raise HTTPException(
-            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
-            detail=f"Too many unknowns, max {settings.max_unknowns}",
-        )
+    check_size(data)
     if count_active(db) >= settings.max_queue_size:
         raise HTTPException(
             status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
