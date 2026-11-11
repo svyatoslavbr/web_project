@@ -1,3 +1,4 @@
+import socket
 from datetime import datetime, timezone
 
 import numpy as np
@@ -11,12 +12,13 @@ from app.taskq import cancel_key, redis_conn
 
 
 def run_task(task_id: int) -> None:
-    db = SessionLocal()
+    db = SessionLocal(expire_on_commit=False)
     try:
         task = db.get(Task, task_id)
         if task is None or task.status != "queued":
             return
         task.status = "running"
+        task.worker_host = socket.gethostname()
         task.started_at = datetime.now(timezone.utc)
         db.commit()
 
