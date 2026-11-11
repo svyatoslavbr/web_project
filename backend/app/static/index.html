@@ -1,0 +1,46 @@
+<!DOCTYPE html>
+<html lang="uk">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width">
+  <title>Розв'язувач систем рівнянь</title>
+  <link rel="stylesheet" href="/style.css">
+</head>
+<body>
+  <h1>Розв'язувач систем рівнянь</h1>
+  <p id="message"></p>
+
+  <section id="auth">
+    <h2>Вхід</h2>
+    <input id="email" type="email" placeholder="Email">
+    <input id="password" type="password" placeholder="Пароль (мінімум 8 символів)">
+    <button id="login">Увійти</button>
+    <button id="register">Реєстрація</button>
+  </section>
+
+  <section id="new-task" hidden>
+    <h2>Нова задача</h2>
+    <select id="kind">
+      <option value="linear_generated">Згенерована система</option>
+      <option value="linear_system">Система з JSON</option>
+    </select>
+    <div id="generated-fields">
+      <input id="n" type="number" min="2" max="5000" placeholder="Кількість невідомих (до 5000)">
+      <input id="seed" type="number" placeholder="Seed (необов'язково)">
+    </div>
+    <div id="json-fields" hidden>
+      <textarea id="matrix" rows="4" placeholder="[[2,1],[1,3]]"></textarea>
+      <textarea id="vector" rows="2" placeholder="[3,5]"></textarea>
+    </div>
+    <button id="submit">Поставити в чергу</button>
+  </section>
+
+  <section id="tasks-section" hidden>
+    <h2>Мої задачі</h2>
+    <button id="logout">Вийти</button>
+    <ul id="tasks"></ul>
+  </section>
+
+  <script src="/app.js"></script>
+</body>
+</html>
