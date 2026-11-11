@@ -1,7 +1,7 @@
 from datetime import datetime, timezone
 
 from fastapi import APIRouter, Depends, HTTPException, status
-from sqlalchemy import func, select
+from sqlalchemy import func, select, true
 from sqlalchemy.orm import Session
 
 from app.config import settings
@@ -13,6 +13,41 @@ from app.taskq import cancel_key, redis_conn, task_queue
 router = APIRouter(prefix="/tasks", tags=["tasks"])
 
 ACTIVE_STATUSES = ("queued", "running")
+WORKER_COUNT = 2
+DEFAULT_DURATION_SECONDS = 10.0
+DURATION_SAMPLE_SIZE = 20
+
+
+def average_duration(db: Session, kind: str) -> float:
+    for kind_filter in (Task.kind == kind, true()):
+        rows = db.execute(
+            select(Task.started_at, Task.finished_at)
+            .where(
+                Task.status == "done",
+                Task.started_at.is_not(None),
+                Task.finished_at.is_not(None),
+                kind_filter,
+            )
+            .order_by(Task.finished_at.desc())
+            .limit(DURATION_SAMPLE_SIZE)
+        ).all()
+        if rows:
+            return sum((f - s).total_seconds() for s, f in rows) / len(rows)
+    return DEFAULT_DURATION_SECONDS
+
+
+def with_queue_info(db: Session, task: Task) -> TaskOut:
+    out = TaskOut.model_validate(task)
+    if task.status == "queued":
+        position = db.scalar(
+            select(func.count())
+            .select_from(Task)
+            .where(Task.status == "queued", Task.id < task.id)
+        )
+        duration = average_duration(db, task.kind)
+        out.queue_position = position
+        out.eta_seconds = round(position * duration / WORKER_COUNT + duration, 2)
+    return out
 
 
 def count_active(db: Session, user_id: int | None = None) -> int:
@@ -80,9 +115,10 @@ def create_task(
 
 @router.get("", response_model=list[TaskOut])
 def list_tasks(db: Session = Depends(get_db), user: User = Depends(get_current_user)):
-    return db.scalars(
+    tasks = db.scalars(
         select(Task).where(Task.user_id == user.id).order_by(Task.id.desc())
     ).all()
+    return [with_queue_info(db, task) for task in tasks]
 
 
 @router.get("/{task_id}", response_model=TaskOut)
@@ -91,7 +127,7 @@ def get_task(
     db: Session = Depends(get_db),
     user: User = Depends(get_current_user),
 ):
-    return get_owned_task(task_id, db, user)
+    return with_queue_info(db, get_owned_task(task_id, db, user))
 
 
 @router.post("/{task_id}/cancel", response_model=TaskOut)

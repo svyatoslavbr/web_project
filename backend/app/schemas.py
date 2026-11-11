@@ -54,6 +54,8 @@ class TaskOut(BaseModel):
     result: dict | None
     error: str | None
     worker_host: str | None
+    queue_position: int | None = None
+    eta_seconds: float | None = None
     created_at: datetime
     started_at: datetime | None
     finished_at: datetime | None
