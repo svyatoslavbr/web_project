@@ -23,7 +23,7 @@ class Task(Base):
     id: Mapped[int] = mapped_column(primary_key=True)
     user_id: Mapped[int] = mapped_column(ForeignKey("users.id"), index=True)
     kind: Mapped[str] = mapped_column(String(50))
-    params: Mapped[dict] = mapped_column(JSON)
+    params: Mapped[dict] = mapped_column(JSON, deferred=True)
     status: Mapped[str] = mapped_column(String(20), index=True)
     progress: Mapped[int] = mapped_column(default=0)
     stage: Mapped[str] = mapped_column(String(255))
