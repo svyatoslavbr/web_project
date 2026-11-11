@@ -101,6 +101,11 @@ function taskItem(task) {
   const stage = document.createElement("div");
   stage.textContent = `${task.progress}% - ${task.stage}`;
   item.append(title, bar, stage);
+  if (task.status === "queued" && task.queue_position !== null) {
+    const queue = document.createElement("div");
+    queue.textContent = `Місце в черзі: ${task.queue_position}, орієнтовно ${Math.round(task.eta_seconds)} с`;
+    item.append(queue);
+  }
   if (task.result) { const result = document.createElement("div"); result.textContent = resultText(task); item.append(result); }
   if (task.error) { const error = document.createElement("div"); error.textContent = `Помилка: ${task.error}`; item.append(error); }
   if (task.status === "queued" || task.status === "running") {
