@@ -53,6 +53,7 @@ class TaskOut(BaseModel):
     stage: str
     result: dict | None
     error: str | None
+    worker_host: str | None
     created_at: datetime
     started_at: datetime | None
     finished_at: datetime | None
