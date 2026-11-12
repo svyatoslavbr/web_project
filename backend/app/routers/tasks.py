@@ -2,7 +2,7 @@ from datetime import datetime, timezone
 
 from fastapi import APIRouter, Depends, HTTPException, status
 from rq import Worker
-from sqlalchemy import func, select, true
+from sqlalchemy import func, select, text, true
 from sqlalchemy.orm import Session
 
 from app.config import settings
@@ -14,6 +14,7 @@ from app.taskq import cancel_key, redis_conn, task_queue
 router = APIRouter(prefix="/tasks", tags=["tasks"])
 
 ACTIVE_STATUSES = ("queued", "running")
+TASK_CREATION_LOCK_ID = 7_310_001
 DEFAULT_DURATION_SECONDS = 10.0
 DURATION_SAMPLE_SIZE = 20
 
@@ -88,6 +89,7 @@ def create_task(
     user: User = Depends(get_current_user),
 ):
     check_size(data)
+    db.execute(text("SELECT pg_advisory_xact_lock(:lock_id)"), {"lock_id": TASK_CREATION_LOCK_ID})
     if count_active(db) >= settings.max_queue_size:
         raise HTTPException(
             status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
