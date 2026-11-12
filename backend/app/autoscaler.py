@@ -1,8 +1,10 @@
+import json
 import logging
 import os
 import signal
 import sys
 import time
+from concurrent.futures import ThreadPoolExecutor
 
 import docker
 from redis import Redis
@@ -18,6 +20,8 @@ SCALE_DOWN_IDLE_SECONDS = int(os.environ.get("SCALE_DOWN_IDLE_SECONDS", "60"))
 CHECK_INTERVAL_SECONDS = int(os.environ.get("CHECK_INTERVAL_SECONDS", "5"))
 SCALE_COOLDOWN_SECONDS = int(os.environ.get("SCALE_COOLDOWN_SECONDS", "15"))
 STOP_TIMEOUT_SECONDS = int(os.environ.get("WORKER_STOP_TIMEOUT_SECONDS", "150"))
+CONTAINER_STATS_KEY = "container_stats"
+CONTAINER_STATS_TTL_SECONDS = 30
 
 logging.basicConfig(level=logging.INFO, format="%(asctime)s %(message)s", stream=sys.stdout)
 log = logging.getLogger("autoscaler")
@@ -108,6 +112,44 @@ def remove_dead_extras():
             container.remove(force=True)
 
 
+def cpu_percent(stats):
+    cpu = stats.get("cpu_stats", {})
+    precpu = stats.get("precpu_stats", {})
+    cpu_delta = cpu.get("cpu_usage", {}).get("total_usage", 0) - precpu.get("cpu_usage", {}).get("total_usage", 0)
+    system_delta = cpu.get("system_cpu_usage", 0) - precpu.get("system_cpu_usage", 0)
+    online = cpu.get("online_cpus") or 1
+    if cpu_delta <= 0 or system_delta <= 0:
+        return 0.0
+    return round(cpu_delta / system_delta * online * 100, 1)
+
+
+def memory_mb(stats):
+    memory = stats.get("memory_stats", {})
+    usage = memory.get("usage", 0) - memory.get("stats", {}).get("inactive_file", 0)
+    return round(max(usage, 0) / 1024 / 1024, 1)
+
+
+def container_info(container):
+    info = {"name": container.name, "status": container.status, "cpu_percent": None, "memory_mb": None}
+    if container.status == "running":
+        try:
+            stats = container.stats(stream=False)
+            info["cpu_percent"] = cpu_percent(stats)
+            info["memory_mb"] = memory_mb(stats)
+        except docker.errors.APIError:
+            pass
+    return info
+
+
+def publish_container_stats():
+    containers = client.containers.list(
+        all=True, filters={"label": f"com.docker.compose.project={PROJECT}"}
+    )
+    with ThreadPoolExecutor(max_workers=max(1, len(containers))) as pool:
+        result = sorted(pool.map(container_info, containers), key=lambda item: item["name"])
+    redis_conn.set(CONTAINER_STATS_KEY, json.dumps(result), ex=CONTAINER_STATS_TTL_SECONDS)
+
+
 def shutdown(*_):
     for container in extra_workers(all_states=True):
         log.info("Завершення: зупиняю %s", container.name)
@@ -156,6 +198,10 @@ def main():
                     last_change = now
         except Exception as exc:
             log.info("Помилка автоскейлера: %s", exc)
+        try:
+            publish_container_stats()
+        except Exception as exc:
+            log.info("Помилка збору статистики контейнерів: %s", exc)
         time.sleep(CHECK_INTERVAL_SECONDS)
 
 
