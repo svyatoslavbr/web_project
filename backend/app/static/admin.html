@@ -1,0 +1,43 @@
+<!DOCTYPE html>
+<html lang="uk">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width">
+  <title>Адмін-панель</title>
+  <link rel="stylesheet" href="/style.css">
+  <style>
+    body { max-width: 960px; }
+    table { width: 100%; border-collapse: collapse; margin: 8px 0; }
+    th, td { border: 1px solid #ccc; padding: 6px 8px; text-align: left; }
+    th { background: #f2f2f2; }
+  </style>
+</head>
+<body>
+  <h1>Адмін-панель</h1>
+  <p id="message"></p>
+  <p id="updated"></p>
+
+  <section id="content" hidden>
+    <h2>Черга</h2>
+    <p id="queue"></p>
+    <p id="users"></p>
+    <h2>Задачі за статусом</h2>
+    <table>
+      <thead><tr><th>Статус</th><th>Кількість</th></tr></thead>
+      <tbody id="statuses"></tbody>
+    </table>
+    <h2>Worker-и</h2>
+    <table>
+      <thead><tr><th>Хост</th><th>Стан</th><th>Поточна задача</th></tr></thead>
+      <tbody id="workers"></tbody>
+    </table>
+    <h2>Контейнери</h2>
+    <table>
+      <thead><tr><th>Назва</th><th>Статус</th><th>CPU, %</th><th>Пам'ять, МБ</th></tr></thead>
+      <tbody id="containers"></tbody>
+    </table>
+  </section>
+
+  <script src="/admin.js"></script>
+</body>
+</html>
