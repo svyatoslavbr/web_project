@@ -25,23 +25,25 @@ services:
       - postgres
       - redis
 
-  worker1:
+  worker:
     build: ./backend
-    hostname: worker1
     command: rq worker tasks --url redis://redis:6379/0
     env_file: .env
+    stop_grace_period: 150s
     depends_on:
       - postgres
       - redis
 
-  worker2:
+  autoscaler:
     build: ./backend
-    hostname: worker2
-    command: rq worker tasks --url redis://redis:6379/0
+    command: python -m app.autoscaler
     env_file: .env
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock
+    stop_grace_period: 160s
     depends_on:
-      - postgres
       - redis
+      - worker
 
   postgres:
     image: postgres:16-alpine

@@ -1,6 +1,7 @@
 from datetime import datetime, timezone
 
 from fastapi import APIRouter, Depends, HTTPException, status
+from rq import Worker
 from sqlalchemy import func, select, true
 from sqlalchemy.orm import Session
 
@@ -13,7 +14,6 @@ from app.taskq import cancel_key, redis_conn, task_queue
 router = APIRouter(prefix="/tasks", tags=["tasks"])
 
 ACTIVE_STATUSES = ("queued", "running")
-WORKER_COUNT = 2
 DEFAULT_DURATION_SECONDS = 10.0
 DURATION_SAMPLE_SIZE = 20
 
@@ -36,6 +36,10 @@ def average_duration(db: Session, kind: str) -> float:
     return DEFAULT_DURATION_SECONDS
 
 
+def active_worker_count() -> int:
+    return max(1, Worker.count(connection=redis_conn, queue=task_queue))
+
+
 def with_queue_info(db: Session, task: Task) -> TaskOut:
     out = TaskOut.model_validate(task)
     if task.status == "queued":
@@ -46,7 +50,7 @@ def with_queue_info(db: Session, task: Task) -> TaskOut:
         )
         duration = average_duration(db, task.kind)
         out.queue_position = position
-        out.eta_seconds = round(position * duration / WORKER_COUNT + duration, 2)
+        out.eta_seconds = round(position * duration / active_worker_count() + duration, 2)
     return out
 
 
